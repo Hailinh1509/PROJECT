@@ -1,16 +1,11 @@
 <?php
-$host = "127.0.0.1";
+$servername = "localhost";
 $username = "root";
-$password = "";     
-$dbname = "qlmypham";
+$password = "";
+$dbname = "qlmypham"; 
 
-// Tạo kết nối và đặt tên biến là $conn (phải nhất quán)
-$ocon = new mysqli($host, $username, $password, $dbname);
-$ocon->set_charset("utf8");
-
-// Kiểm tra kết nối
-if ($ocon->connect_error) {
-    die("Kết nối thất bại: " . $ocon->connect_error);
+$conn = new mysqli($servername, $username, $password, $dbname);
+if ($conn->connect_error) {
+    die("Kết nối thất bại: " . $conn->connect_error);
 }
-
 ?>

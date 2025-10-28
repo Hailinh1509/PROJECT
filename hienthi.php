@@ -3,7 +3,7 @@ include("connect.php");
 
 // Lấy danh sách loại sản phẩm
 $sql_loaisp = "SELECT * FROM loaisp";
-$res_loaisp = $ocon->query($sql_loaisp);
+$res_loaisp = $conn->query($sql_loaisp);
 
 // Phân trang
 $limit = 4;
@@ -20,8 +20,8 @@ if (!empty($maloai)) {
     $sql_count = "SELECT COUNT(*) as total FROM sanpham";
 }
 
-$res_sp = $ocon->query($sql_sp);
-$total_sp = $ocon->query($sql_count)->fetch_assoc()['total'];
+$res_sp = $conn->query($sql_sp);
+$total_sp = $conn->query($sql_count)->fetch_assoc()['total'];
 $total_page = ceil($total_sp / $limit);
 ?>
 
@@ -106,8 +106,10 @@ $total_page = ceil($total_sp / $limit);
 <body>
 
 <div class="topbar">
-    <a href="xly/ktralogin.php?next=../giohang.php" class="giohang" >🛒 Xem giỏ hàng</a>
-    <a href="#" class="dangnhap">🔐 Đăng ký / Đăng nhập</a>
+    <a href="xly/ktraDangNhap.php?next=../giohang.php">🛒 Xem giỏ hàng</a>
+    <?php if (isset($_SESSION['matk'])): ?> <a href="taikhoan.php">🚪 Đăng xuất</a> 
+    <?php else: ?> <a href="taikhoan.php">🔐 Đăng nhập / Đăng ký</a> 
+    <?php endif; ?>
 </div>
 
 <div class="container">
@@ -169,4 +171,4 @@ $total_page = ceil($total_sp / $limit);
 
 </body>
 </html>
-<?php $ocon->close(); ?>
+<?php $conn->close(); ?>

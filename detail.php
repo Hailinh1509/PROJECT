@@ -2,14 +2,14 @@
 session_start();
 include('connect.php');
 
-// ====== LẤY THÔNG TIN SẢN PHẨM ======
+// ===== LẤY THÔNG TIN SẢN PHẨM =====
 $masp = isset($_GET['masp']) ? $_GET['masp'] : '';
 
 $sql = "SELECT sp.*, l.tenloai 
         FROM sanpham sp 
         JOIN loaisp l ON sp.maloai = l.maloai 
         WHERE sp.masp = '$masp'";
-$result = $ocon->query($sql);
+$result = $conn->query($sql);
 
 if ($result->num_rows > 0) {
     $row = $result->fetch_assoc();
@@ -18,56 +18,29 @@ if ($result->num_rows > 0) {
     exit;
 }
 
+// ===== XỬ LÝ THÊM VÀO GIỎ =====
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_to_cart'])) {
-    include('xly/ktralogin.php'); //  kiểm tra đăng nhập
+    if (!isset($_SESSION['matk'])) {
+        echo "<script>alert('Bạn cần đăng nhập để thêm sản phẩm vào giỏ!');window.location='taikhoan.php';</script>";
+        exit;
+    }
 
     $matk = $_SESSION['matk'];
     $masp = $_POST['masp'];
-    $tensp = $_POST['tensp'];
-    $gia = $_POST['gia'];
-    $soluong = $_POST['soluong'];
-    $hinhanh = $_POST['hinhanh'];
+    $soluong = (int)$_POST['soluong'];
     $ngaychonhang = date('Y-m-d');
     $trangthai = 'Tạm thời';
 
-    //  Lưu vào SESSION
-    if (!isset($_SESSION['giohang'])) $_SESSION['giohang'] = [];
-
-    $found = false;
-    foreach ($_SESSION['giohang'] as &$sp) {
-        if ($sp['masp'] === $masp) {
-            $sp['soluong'] += $soluong;
-            $found = true;
-            break;
-        }
-    }
-    unset($sp);
-
-    if (!$found) {
-        $_SESSION['giohang'][] = [
-            'masp' => $masp,
-            'tensp' => $tensp,
-            'gia' => $gia,
-            'soluong' => $soluong,
-            'hinhanh' => $hinhanh
-        ];
-    }
-
-    // Lưu vào DATABASE
-    $check = mysqli_query($ocon, "SELECT * FROM giohang WHERE matk='$matk' AND masp='$masp' AND trangthaigio='Tạm thời'");
-    if (mysqli_num_rows($check) > 0) {
-        mysqli_query($ocon, "UPDATE giohang 
-                             SET soluong = soluong + $soluong 
-                             WHERE matk='$matk' AND masp='$masp' AND trangthaigio='Tạm thời'");
+    // kiểm tra có sản phẩm đó trong giỏ chưa
+    $check = $conn->query("SELECT * FROM giohang WHERE matk='$matk' AND masp='$masp' AND trangthaigio='Tạm thời'");
+    if ($check->num_rows > 0) {
+        $conn->query("UPDATE giohang SET soluong = soluong + $soluong WHERE matk='$matk' AND masp='$masp' AND trangthaigio='Tạm thời'");
     } else {
-        mysqli_query($ocon, "INSERT INTO giohang (matk, masp, tensp, gia, soluong, hinhanh, ngaychonhang, trangthaigio)
-                             VALUES ('$matk', '$masp', '$tensp', '$gia', '$soluong', '$hinhanh', '$ngaychonhang', '$trangthai')");
+        $conn->query("INSERT INTO giohang (matk, masp, ngaychonhang, soluong, trangthaigio)
+                      VALUES ('$matk', '$masp', '$ngaychonhang', '$soluong', '$trangthai')");
     }
 
-    echo "<script>
-            alert('Đã thêm sản phẩm vào giỏ hàng!');
-            window.location.href = 'giohang.php';
-          </script>";
+    echo "<script>alert('Đã thêm sản phẩm vào giỏ hàng!');window.location='giohang.php';</script>";
     exit;
 }
 ?>
@@ -78,116 +51,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_to_cart'])) {
     <meta charset="UTF-8">
     <title>Chi tiết sản phẩm</title>
     <style>
-        body {
-            margin: 50px auto;
-            width: 80%;
-        }
-        .topbar {
-            text-align: right;
-            margin: 10px;
-        }
-        .topbar a {
-            padding: 8px 14px;
-            border-radius: 5px;
-            text-decoration: none;
-            margin-left: 10px;
-            color: black;
-        }
-        .product-container {
-            display: flex;
-            align-items: flex-start;
-            gap: 50px;
-        }
-        .product-container img {
-            width: 300px;
-            height: auto;
-            border-radius: 10px;
-            box-shadow: 0px 0px 8px #ccc;
-        }
-        .product-info {
-            max-width: 600px;
-        }
-        .product-info h2 {
-            color: #c0392b;
-        }
-        .product-info p {
-            font-size: 16px;
-            margin: 6px 0;
-        }
-        .price {
-            color: #27ae60;
-            font-weight: bold;
-            font-size: 18px;
-        }
-        .btn {
-            margin-top: 15px;
-            padding: 10px 20px;
-            background-color: #3498db;
-            border: none;
-            color: white;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        .btn:hover {
-            background-color: #2980b9;
-        }
-        .back-btn {
-            margin-top: 20px;
-            padding: 10px 20px;
-            background-color: #7f8c8d;
-            border: none;
-            color: white;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        .back-btn:hover {
-            background-color: #636e72;
-        }
-        input[type="number"] {
-            width: 80px;
-            padding: 6px;
-            font-size: 15px;
-            margin-top: 6px;
-        }
+        body { margin: 40px auto; width: 80%; font-family: Arial; }
+        .topbar { text-align: right; margin: 10px; }
+        .topbar a { padding: 8px 14px; text-decoration: none; color: black; border: 1px solid #ccc; border-radius: 5px; }
+        .product-container { display: flex; align-items: flex-start; gap: 40px; margin-top: 20px; }
+        .product-container img { width: 300px; height: auto; border-radius: 10px; box-shadow: 0px 0px 8px #ccc; }
+        .product-info h2 { color: #c0392b; }
+        .price { color: #27ae60; font-weight: bold; font-size: 18px; }
+        input[type="number"] { width: 80px; padding: 6px; font-size: 15px; }
+        button { padding: 10px 18px; border: none; border-radius: 5px; cursor: pointer; color: white; margin-top: 10px; }
+        .btn-add { background: #3498db; }
+        .btn-back { background: #7f8c8d; margin-left: 10px; }
+        .btn-add:hover { background: #2980b9; }
+        .btn-back:hover { background: #636e72; }
     </style>
 </head>
 <body>
     <div class="topbar">
-        <a href="xly/ktraDangNhap.php?next=../giohang.php">🛒 Xem giỏ hàng</a>
+        <a href="giohang.php">🛒 Xem giỏ hàng</a>
         <?php if (isset($_SESSION['matk'])): ?>
-            <a href="logout.php">🚪 Đăng xuất</a>
+            <a href="taikhoan.php">🚪 Đăng xuất</a>
         <?php else: ?>
-            <a href="login.php">🔐 Đăng nhập / Đăng ký</a>
+            <a href="taikhoan.php">🔐 Đăng nhập / Đăng ký</a>
         <?php endif; ?>
     </div>
 
     <h1>Chi tiết sản phẩm</h1>
 
     <div class="product-container">
-        <div class="product-image">
+        <div>
             <img src="<?php echo $row['hinhanh']; ?>" alt="<?php echo $row['tensp']; ?>">
         </div>
-
         <div class="product-info">
             <h2><?php echo $row['tensp']; ?></h2>
-            <p><strong>Mã sản phẩm:</strong> <?php echo $row['masp']; ?></p>
-            <p><strong>Loại sản phẩm:</strong> <?php echo $row['tenloai']; ?></p>
-            <p><strong>Giá:</strong> 
-                <span class="price"><?php echo number_format($row['gia'], 0, ',', '.'); ?> VNĐ</span>
-            </p>
+            <p><b>Mã sản phẩm:</b> <?php echo $row['masp']; ?></p>
+            <p><b>Loại sản phẩm:</b> <?php echo $row['tenloai']; ?></p>
+            <p><b>Giá:</b> <span class="price"><?php echo $row['gia']; ?> VNĐ</span></p>
 
             <form action="" method="POST">
                 <input type="hidden" name="masp" value="<?php echo $row['masp']; ?>">
-                <input type="hidden" name="tensp" value="<?php echo $row['tensp']; ?>">
-                <input type="hidden" name="gia" value="<?php echo $row['gia']; ?>">
-                <input type="hidden" name="hinhanh" value="<?php echo $row['hinhanh']; ?>">
-
-                <label for="quantity"><strong>Số lượng:</strong></label>
-                <input type="number" id="quantity" name="soluong" value="1" min="1" max="<?php echo $row['soluong']; ?>">
-                <span>(Còn <?php echo $row['soluong']; ?> sản phẩm)</span>
-                <br>
-                <button type="submit" class="btn" name="add_to_cart">Thêm vào giỏ hàng</button>
-                <button type="button" class="back-btn" onclick="window.location.href='hienthi.php'">Quay về trang sản phẩm</button>
+                <label><b>Số lượng:</b></label>
+                <input type="number" name="soluong" value="1" min="1" max="<?php echo $row['soluong']; ?>">
+                <p>(Còn <?php echo $row['soluong']; ?> sản phẩm)</p>
+                <button type="submit" name="add_to_cart" class="btn-add">Thêm vào giỏ hàng</button>
+                <button type="button" class="btn-back" onclick="window.location.href='hienthi.php'">Quay lại</button>
             </form>
         </div>
     </div>
