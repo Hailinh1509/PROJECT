@@ -1,4 +1,5 @@
 <?php
+session_start();
 include("connect.php");
 
 // Lấy danh sách loại sản phẩm
@@ -58,7 +59,7 @@ $total_page = ceil($total_sp / $limit);
             border: 1px solid #333;
             text-align: center;
             padding: 5px;
-            height: 380px;
+            height: 450px;
             transition: all 0.3s;
         }
         .product:hover {
@@ -106,7 +107,7 @@ $total_page = ceil($total_sp / $limit);
 <body>
 
 <div class="topbar">
-    <a href="xly/ktraDangNhap.php?next=../giohang.php">🛒 Xem giỏ hàng</a>
+    <a href="xly/ktralogin.php?next=../giohang.php">🛒 Xem giỏ hàng</a>
     <?php if (isset($_SESSION['matk'])): ?> <a href="taikhoan.php">🚪 Đăng xuất</a> 
     <?php else: ?> <a href="taikhoan.php">🔐 Đăng nhập / Đăng ký</a> 
     <?php endif; ?>
