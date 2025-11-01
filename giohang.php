@@ -97,7 +97,7 @@ if ($result->num_rows > 0) {
 </table>
 <br>
 <input type="submit" name="update_cart" value="Cập nhật giỏ hàng" class="update">
-<button type="button" class="checkout" onclick="alert('Chức năng đặt hàng sẽ được cập nhật sau!')">Đặt hàng</button>
+<<button type="button" class="checkout" onclick="window.location.href='thanhtoan.php'">Đặt hàng</button>
 <button type="button" class="back" onclick="window.location.href='hienthi.php'">Tiếp tục mua hàng</button>
 </form>
 
