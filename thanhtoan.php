@@ -6,22 +6,35 @@
  * - Thêm ô "Địa chỉ nhận hàng (chi tiết)"
  * - Sau khi thanh toán thành công: XÓA các dòng giỏ hàng đã thanh toán
  ***********************/
+
 declare(strict_types=1);
 if (session_status() === PHP_SESSION_NONE) {
     session_set_cookie_params(['path' => '/']);
     session_start();
 }
-$err = '';
-$placed = '';
-
 require_once __DIR__ . '/connect.php'; // tạo $conn (mysqli)
 $matk = $_SESSION['matk'] ?? null;
-if (!$matk) {
-    header('Location: taikhoan.php?err=Vui+long+dang+nhap+de+thanh+toan');
-    exit;
-}
+/* LẤY THÔNG TIN NGƯỜI DÙNG */
+$user = ['tentk' => '', 'sodt' => '', 'diachi' => ''];
 
-/* 1) LẤY GIỎ HÀNG TỪ DB */
+$sqlUser = "SELECT tentk, sodt, diachi FROM nguoidung WHERE matk = ?";
+if ($su = $conn->prepare($sqlUser)) {
+    $su->bind_param('s', $matk);
+    $su->execute();
+    $rsu = $su->get_result();
+    if ($r = $rsu->fetch_assoc()) {
+        $user['tentk'] = $r['tentk'];
+        $user['sodt']   = $r['sodt'];
+        $user['diachi'] = $r['diachi'];
+        //tách địa chỉ tỉnh để hiện thị riêng
+        $parts = array_map('trim', explode(',', $r['diachi']));
+        $province = end($parts);
+        $user['province'] = $province;
+    }
+    $su->close();
+    }
+
+/*LẤY GIỎ HÀNG TỪ DB */
 $cart = [];
 $subtotal = 0;
 
@@ -37,6 +50,7 @@ $sql = "
     AND g.trangthaigio = 'Tạm thời'
 ";
 if ($st = $conn->prepare($sql)) {
+
     $st->bind_param('s', $matk);
     $st->execute();
     $rs = $st->get_result();
@@ -54,10 +68,10 @@ if ($st = $conn->prepare($sql)) {
     $st->close();
 }
 
-if (empty($cart)) {
-    header('Location: giohang.php?msg=Giỏ+hàng+rỗng');
-    exit;
-}
+//if (empty($cart)) {
+    //header('Location: giohang.php?msg=Giỏ+hàng+rỗng');
+    //exit;
+//}
 
 /* 2) CẤU HÌNH TỈNH/SHIP/VAT */
 $PROVINCES = [
@@ -73,65 +87,6 @@ function calcShipFee(string $province): int {
 }
 $vat = (int) round($subtotal * 0.10);
 
-/* 3) XỬ LÝ SUBMIT */
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
-    $fullname   = trim($_POST['fullname'] ?? '');
-    $phone      = trim($_POST['phone'] ?? '');
-    $province   = trim($_POST['province'] ?? '');
-    $addr_detail= trim($_POST['address_detail'] ?? '');  // ✅ địa chỉ chi tiết
-
-    if ($fullname === '' || $phone === '' || $province === '') {
-        $err = 'Vui lòng nhập Họ tên, SĐT và chọn Tỉnh/Thành.';
-    } else {
-        $shipFee    = calcShipFee($province);
-        $grandTotal = (int)$subtotal + (int)$vat + (int)$shipFee;
-
-        // ====== TODO: LƯU ĐƠN HÀNG (nếu có bảng donhang/chitietdonhang) ======
-        // Ví dụ mẫu (bạn sửa tên bảng/field cho khớp rồi bỏ comment):
-        /*
-        $conn->begin_transaction();
-        try {
-            $pm = $_POST['payment_method'] ?? 'COD';
-            $sqlOrder = "INSERT INTO donhang (matk, hoten, sdt, province, diachi, tamtinh, vat, ship, tongtien, payment_method, created_at)
-                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
-            $s1 = $conn->prepare($sqlOrder);
-            $s1->bind_param('ssssiiiis', $matk, $fullname, $phone, $province, $addr_detail, $subtotal, $vat, $shipFee, $grandTotal, $pm);
-            $s1->execute();
-            $orderId = $s1->insert_id;
-            $s1->close();
-
-            $sqlItem = "INSERT INTO chitietdonhang (madh, masp, tensp, gia, soluong) VALUES (?, ?, ?, ?, ?)";
-            $s2 = $conn->prepare($sqlItem);
-            foreach ($cart as $it) {
-                $s2->bind_param('iisii', $orderId, $it['id'], $it['name'], $it['price'], $it['qty']);
-                $s2->execute();
-            }
-            $s2->close();
-        } catch (\Throwable $e) {
-            $conn->rollback();
-            $err = 'Có lỗi khi lưu đơn: ' . $e->getMessage();
-        }
-        */
-        // =====================================================================
-
-        if ($err === '') {
-            // ✅ XÓA HẾT CÁC DÒNG GIỎ HÀNG ĐÃ THANH TOÁN
-            $del = $conn->prepare("DELETE FROM giohang WHERE matk=? AND trangthaigio='Tạm thời'");
-            $del->bind_param('s', $matk);
-            $del->execute();
-            $del->close();
-
-            // làm trống giỏ trong trang hiện tại
-            $cart = [];
-            $subtotal = 0;
-            $vat = 0;
-
-            $placed = 'Đặt hàng thành công! Cảm ơn bạn đã mua sắm.';
-            // Có thể redirect sang trang cảm ơn:
-            // header("Location: camon.php"); exit;
-        }
-    }
-}
 ?>
 <!DOCTYPE html>
 <html lang="vi">
@@ -154,13 +109,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
 <body>
 <div class="container my-4">
   <h2 class="mb-3">Thanh toán</h2>
-
-  <?php if (!empty($err)): ?>
-    <div class="alert alert-danger"><?= htmlspecialchars($err) ?></div>
-  <?php endif; ?>
-  <?php if (!empty($placed)): ?>
-    <div class="alert alert-success"><?= htmlspecialchars($placed) ?></div>
-  <?php endif; ?>
 
   <?php if (!empty($cart)): ?>
   <!-- SẢN PHẨM TRONG ĐƠN -->
@@ -193,41 +141,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
   </div>
   <?php endif; ?>
 
-  <form method="post">
+  <form method="post" action="xly/xldathang.php">
     <div class="row g-4">
       <!-- THÔNG TIN GIAO HÀNG -->
       <div class="col-md-7">
         <div class="section-card">
-          <h5 class="mb-3">Thông tin giao hàng</h5>
+  <h5 class="mb-3">Thông tin giao hàng</h5>
 
-          <div class="mb-3">
-            <label class="form-label">Họ và tên</label>
-            <input type="text" name="fullname" class="form-control" required>
-          </div>
+  <div class="mb-3">
+    <label class="form-label">Họ và tên</label>
+    <input type="text" name="fullname" class="form-control" required
+           value="<?= htmlspecialchars($user['tentk']) ?>">
+  </div>
 
-          <div class="mb-3">
-            <label class="form-label">Số điện thoại</label>
-            <input type="tel" name="phone" class="form-control" required>
-          </div>
-
-          <div class="mb-3">
-            <label for="province" class="form-label">Tỉnh/Thành nhận hàng</label>
-            <select name="province" id="province" class="form-control" required>
-              <option value="" selected disabled>-- Chọn tỉnh/thành --</option>
-              <?php foreach ($PROVINCES as $p): ?>
-                <option value="<?= htmlspecialchars($p) ?>"><?= htmlspecialchars($p) ?></option>
-              <?php endforeach; ?>
-            </select>
-            <input type="hidden" name="ship_fee" id="ship_fee_input" value="0">
-            <div class="form-text">* Phí ship: Hà Nội 30.000 VND; tỉnh khác 50.000 VND.</div>
-          </div>
-
-          <!-- ✅ ĐỊA CHỈ CHI TIẾT -->
-          <div class="mb-3">
-            <label for="address_detail" class="form-label">Địa chỉ nhận hàng (chi tiết)</label>
-            <textarea name="address_detail" id="address_detail" class="form-control" rows="3" placeholder="Số nhà, đường, phường/xã, quận/huyện..." ></textarea>
-          </div>
-
+  <div class="mb-3">
+    <label class="form-label">Số điện thoại</label>
+    <input type="tel" name="phone" class="form-control" required
+           value="<?= $user['sodt'] ?>">
+  </div>
+<!-- Tỉnh/Thành nhận hàng -->
+  <div class="mb-3">
+    <label for="province" class="form-label">Tỉnh/Thành nhận hàng</label>
+    <select name="province" id="province" class="form-control" required>
+      <option value="" disabled>-- Chọn tỉnh/thành --</option>
+      <?php foreach ($PROVINCES as $p): ?>
+        <option value="<?= htmlspecialchars($p) ?>"
+        <?= ($p === $user['province']) ? 'selected' : '' ?>>
+        <?= htmlspecialchars($p) ?>
+      </option>
+      <?php endforeach; ?>
+</select>
+    <input type="hidden" name="ship_fee" id="ship_fee_input" value="0">
+    <div class="form-text">* Phí ship: Hà Nội 30.000 VND; tỉnh khác 50.000 VND.</div>
+  </div>
+<!--địa chi chi tiet-->
+  <div class="mb-3">
+    <label for="address_detail" class="form-label">Địa chỉ nhận hàng (chi tiết)</label>
+    <textarea name="address_detail" id="address_detail" class="form-control" rows="3"
+              placeholder="Số nhà, đường, phường/xã, quận/huyện..."><?= htmlspecialchars($user['diachi']) ?></textarea>
+  </div>
+<!--phuong thuc thanh toan-->
           <div class="mb-1">
             <label class="form-label">Phương thức thanh toán</label>
             <div class="form-check">
