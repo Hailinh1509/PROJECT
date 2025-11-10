@@ -151,13 +151,13 @@ $vat = (int) round($subtotal * 0.10);
   <div class="mb-3">
     <label class="form-label">Họ và tên</label>
     <input type="text" name="fullname" class="form-control" required
-           value="<?= htmlspecialchars($user['tentk']) ?>">
+           value="<?= htmlspecialchars($user['tentk']) ?>" readonly>
   </div>
 
   <div class="mb-3">
     <label class="form-label">Số điện thoại</label>
     <input type="tel" name="phone" class="form-control" required
-           value="<?= $user['sodt'] ?>">
+           value="<?= $user['sodt'] ?>" readonly>
   </div>
 <!-- Tỉnh/Thành nhận hàng -->
   <div class="mb-3">
@@ -178,7 +178,7 @@ $vat = (int) round($subtotal * 0.10);
   <div class="mb-3">
     <label for="address_detail" class="form-label">Địa chỉ nhận hàng (chi tiết)</label>
     <textarea name="address_detail" id="address_detail" class="form-control" rows="3"
-              placeholder="Số nhà, đường, phường/xã, quận/huyện..."><?= htmlspecialchars($user['diachi']) ?></textarea>
+              placeholder="Số nhà, đường, phường/xã, quận/huyện..." readonly><?= htmlspecialchars($user['diachi']) ?></textarea>
   </div>
 <!--phuong thuc thanh toan-->
           <div class="mb-1">
@@ -221,7 +221,9 @@ $vat = (int) round($subtotal * 0.10);
               <th class="text-end"><span id="grand-total"><?= number_format($subtotal + $vat, 0, ',', '.') ?> VND</span></th>
             </tr>
           </table>
-
+        <!--thêm hai dòng sau-->
+        <input type="hidden" name="subtotal" value="<?= (int)$subtotal ?>">
+        <input type="hidden" name="vat" value="<?= (int)$vat ?>">
           <div class="d-grid gap-2 mt-3">
             <button type="submit" name="place_order" class="btn btn-primary btn-lg">Thanh toán</button>
             <a href="giohang.php" class="btn btn-light">Quay lại giỏ hàng</a>
