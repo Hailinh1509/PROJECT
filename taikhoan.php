@@ -1,45 +1,34 @@
 <?php
 session_start();
-include 'connect.php'; // đảm bảo file connect.php có: $conn = new mysqli(...);
+include 'connect.php';
 
-// Nếu đã đăng nhập và muốn đăng xuất
+// Nếu đã đăng nhập - muốn đăng xuất
 if (isset($_GET['logout'])) {
-    session_destroy();
+    session_destroy(); //Xóa phiên đăng nhập
     header("Location: taikhoan.php");
     exit;
 }
 
 // ==== Xử lý ĐĂNG NHẬP ====
 if (isset($_POST['dangnhap'])) {
-    $tentk = trim($_POST['tentk']);
-    $matkhau = trim($_POST['matkhau']);
+    $tentk = $_POST['tentk'];
+    $matkhau = $_POST['matkhau'];
 
     if ($tentk === "" || $matkhau === "") {
         echo "<script>alert('Vui lòng nhập tên tài khoản và mật khẩu.');</script>";
     } else {
-        // Tìm user theo tentk (exact match)
-        $stmt = $conn->prepare("SELECT matk, tentk, matkhau FROM nguoidung WHERE tentk = ?");
-        $stmt->bind_param("s", $tentk);
-        $stmt->execute();
-        $res = $stmt->get_result();
-
-        // Nếu không tìm theo tentk, thử tìm theo matk (TK001...)
-        if (!$res || $res->num_rows == 0) {
-            $stmt2 = $conn->prepare("SELECT matk, tentk, matkhau FROM nguoidung WHERE matk = ?");
-            $stmt2->bind_param("s", $tentk);
-            $stmt2->execute();
-            $res = $stmt2->get_result();
-        }
+        // Truy vấn 
+        $sql = "SELECT matk, tentk, matkhau FROM nguoidung 
+                WHERE tentk = '$tentk' OR matk = '$tentk'";
+        $res = $conn->query($sql);
 
         if ($res && $res->num_rows > 0) {
             $row = $res->fetch_assoc();
-            $stored = trim($row['matkhau']); // loại bỏ khoảng trắng thừa
+            $stored = $row['matkhau'];
 
-            // So sánh trực tiếp plaintext
             if ($matkhau === $stored) {
-                // Đăng nhập thành công
-                $_SESSION['user'] = $row['tentk']; // lưu tên hiển thị
-                $_SESSION['matk'] = $row['matk'];  // lưu mã tài khoản nếu cần
+                $_SESSION['user'] = $row['tentk'];
+                $_SESSION['matk'] = $row['matk'];
                 echo "<script>alert('Đăng nhập thành công!');window.location='hienthi.php';</script>";
                 exit;
             } else {
@@ -53,47 +42,44 @@ if (isset($_POST['dangnhap'])) {
 
 // ==== XỬ LÝ ĐĂNG KÝ ====
 if (isset($_POST['dangky'])) {
-    $tentk = trim($_POST['tentk']);
-    $matkhau = trim($_POST['matkhau']);
-    $nhaplai = trim($_POST['nhaplai']);
-    $diachi = trim($_POST['diachi']);
-    $sodt = trim($_POST['sodt']);
+    $tentk = $_POST['tentk'];
+    $matkhau = $_POST['matkhau'];
+    $nhaplai = $_POST['nhaplai'];
+    $diachi = $_POST['diachi'];
+    $sodt = $_POST['sodt'];
 
-    if ($tentk == "" || $matkhau == "" || $nhaplai == "") {
-        echo "<script>alert('Vui lòng nhập đầy đủ thông tin!');</script>";
-    } elseif ($matkhau != $nhaplai) {
+    if ($matkhau != $nhaplai) {
         echo "<script>alert('Mật khẩu nhập lại không khớp!');</script>";
     } else {
         // Kiểm tra trùng tentk
-        $check = $conn->prepare("SELECT tentk FROM nguoidung WHERE tentk = ?");
-        $check->bind_param("s", $tentk);
-        $check->execute();
-        $check->store_result();
+        $sql = "SELECT tentk FROM nguoidung WHERE tentk = '$tentk'";
+        $check = $conn->query($sql); 
 
-        if ($check->num_rows > 0) {
+        if ($check && $check->num_rows > 0) {
             echo "<script>alert('Tên tài khoản đã tồn tại!');</script>";
         } else {
             // Sinh matk tự động dạng TK001, TK002...
+            //lấy matk lớn nhất
             $last = $conn->query("SELECT matk FROM nguoidung ORDER BY matk DESC LIMIT 1");
             if ($last && $last->num_rows > 0) {
                 $r = $last->fetch_assoc();
-                // nếu format khác, cố gắng tách số; nếu không được, đặt next = 1
+                // Cắt từ ký tự thứ 2 -> chuyển  thành số nguyên để cộng thêm 1
                 $num = (int)substr($r['matk'], 2);
                 $num = $num + 1;
-                $matk = "TK" . str_pad($num, 3, "0", STR_PAD_LEFT);
+                $matk = "TK" . str_pad($num, 3, "0", STR_PAD_LEFT); //Đệm số 0 bên trái cho đủ 3 chữ số
             } else {
                 $matk = "TK001";
             }
 
-            // Lưu mật khẩu plaintext (không mã hóa)
-            $stmt = $conn->prepare("INSERT INTO nguoidung (matk, tentk, matkhau, diachi, sodt) VALUES (?, ?, ?, ?, ?)");
-            $stmt->bind_param("sssss", $matk, $tentk, $matkhau, $diachi, $sodt);
+            // Lưu dữ liệu người dùng vào cơ sở dữ liệu
+            $sql = "INSERT INTO nguoidung (matk, tentk, matkhau, diachi, sodt) 
+                    VALUES ('$matk', '$tentk', '$matkhau', '$diachi', '$sodt')";
 
-            if ($stmt->execute()) {
+            if ($conn->query($sql) === TRUE) {
                 echo "<script>alert('Đăng ký thành công! Mã tài khoản: $matk');window.location='hienthi.php';</script>";
                 exit;
             } else {
-                echo "<script>alert('Lỗi khi đăng ký: " . htmlspecialchars($stmt->error) . "');</script>";
+                echo "<script>alert('Lỗi khi đăng ký: " . $conn->error . "');</script>";
             }
         }
     }
@@ -106,10 +92,6 @@ if (isset($_POST['dangky'])) {
     <meta charset="utf-8">
     <title>Đăng nhập / Đăng ký</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background: #f2f2f2;
-        }
         .container {
             width: 380px;
             margin: 70px auto;
@@ -120,7 +102,6 @@ if (isset($_POST['dangky'])) {
         }
         h2 {
             text-align: center;
-            color: #333;
         }
         form {
             margin-top: 20px;
@@ -154,9 +135,7 @@ if (isset($_POST['dangky'])) {
             color: #007bff;
             text-decoration: none;
         }
-        .switch a:hover {
-            text-decoration: underline;
-        }
+
         .logged {
             text-align: center;
         }
@@ -174,9 +153,10 @@ if (isset($_POST['dangky'])) {
 <body>
 
 <div class="container">
-    <?php if (isset($_SESSION['user'])) { ?>
+    <!-- Kiểm tra đã có biến user (đã đăng nhập) chưa -->
+    <?php if (isset($_SESSION['user'])) { ?> 
         <div class="logged">
-            <h2>Xin chào, <span style="color:green;"><?php echo htmlspecialchars($_SESSION['user']); ?></span>!</h2>
+            <h2>Xin chào, <span style="color:green;"><?php echo $_SESSION['user']; ?></span>!</h2>
             <p>Bạn muốn đăng xuất tài khoản?</p>
             <a class="logout" href="taikhoan.php?logout=1">Đăng xuất</a>
         </div>
@@ -184,7 +164,8 @@ if (isset($_POST['dangky'])) {
 
         <?php if (!isset($_GET['mode']) || $_GET['mode'] == 'login') { ?>
             <h2>Đăng nhập</h2>
-            <form method="post">
+            <!-- Gửi dữ liệu đăng nhập bằng phương thức POST -->
+            <form method="POST">
                 <label>Tên tài khoản (hoặc mã TK):</label>
                 <input type="text" name="tentk" required>
 
@@ -211,10 +192,10 @@ if (isset($_POST['dangky'])) {
                 <input type="password" name="nhaplai" required>
 
                 <label>Địa chỉ:</label>
-                <input type="text" name="diachi">
+                <input type="text" name="diachi" required>
 
                 <label>Số điện thoại:</label>
-                <input type="text" name="sodt">
+                <input type="text" name="sodt" required>
 
                 <button type="submit" name="dangky">Đăng ký</button>
 

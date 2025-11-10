@@ -33,9 +33,7 @@ $total_page = ceil($total_sp / $limit);
     <title>Danh sách sản phẩm</title>
     <style>
         body {
-            font-family: Roboto, sans-serif;
-            color: #000;
-            font-size: 1.1em;
+            font-size: 1.2em;
         }
         .container {
             display: flex;
@@ -107,7 +105,7 @@ $total_page = ceil($total_sp / $limit);
 <body>
 
 <div class="topbar">
-    <a href="xly/ktralogin.php?next=../giohang.php">🛒 Xem giỏ hàng</a>
+    <a href="xly/ktralogin.php">🛒 Xem giỏ hàng</a>
     <?php if (isset($_SESSION['matk'])): ?> <a href="taikhoan.php">🚪 Đăng xuất</a> 
     <?php else: ?> <a href="taikhoan.php">🔐 Đăng nhập / Đăng ký</a> 
     <?php endif; ?>
